@@ -6,9 +6,9 @@
 **Diagnostic Steps:**
 1. Verify key type and permissions
 2. Check IP allowlisting settings
-3. Confirm signature algorithm (ECDSA, not Ed25519)
+3. Confirm signature algorithm (ECDSA or Ed25519)
 4. Validate request headers and format
-5. Check key expiration and rotation
+5. Check key expiration, server time and rotation 
 
 **Common Solutions:**
 - Regenerate API key with correct permissions
