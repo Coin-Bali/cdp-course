@@ -1,0 +1,26 @@
+{
+  "id": "evt_test_123",
+  "type": "charge:confirmed",
+  "created_at": "2025-11-14T00:00:00Z",
+  "data": {
+    "code": "charge_code_ABC",
+    "name": "Test charge",
+    "timeline": [
+      {"status": "NEW", "time": "2025-11-14T00:00:00Z"},
+      {"status": "CONFIRMED", "time": "2025-11-14T00:01:00Z"}
+    ],
+    "pricing": {"local": {"amount": "25.00", "currency": "USD"}},
+    "payments": []
+  },
+  "event": {
+    "type": "charge:confirmed",
+    "api_version": "2021-03-05",
+    "data": {
+      "code": "charge_code_ABC",
+      "payment": {
+        "network": "base",
+        "transaction_id": "0xabc123"
+      }
+    }
+  }
+}
