@@ -1,44 +1,51 @@
-#!/usr/bin/env python3
-"""Fetch Coinbase Business accounts and balances."""
+import sys
 import os
 import requests
-from dotenv import load_dotenv
-from pathlib import Path
+import json
+from dotenv import load_dotenv, find_dotenv
 
-load_dotenv(dotenv_path=Path(__file__).parents[1] / ".env")
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from utils.cdp_auth import generate_jwt
 
-BASE_URL = "https://api.coinbase.com/v2"
-TOKEN = os.getenv("BUSINESS_BEARER_TOKEN")
-CB_VERSION = os.getenv("CB_VERSION", "2024-01-06")
+load_dotenv(find_dotenv())
 
+def get_business_accounts():
+    key_id = os.getenv("BUSINESS_API_KEY_ID")
+    key_secret = os.getenv("BUSINESS_API_KEY_SECRET")
+    
+    if not key_id or not key_secret:
+        print("Error: BUSINESS_API_KEY_ID and BUSINESS_API_KEY_SECRET must be set in .env")
+        return
 
-def get_headers():
-    if not TOKEN:
-        raise SystemExit("Set BUSINESS_BEARER_TOKEN in your Module 7 .env file before running this script.")
-    return {
-        "Authorization": f"Bearer {TOKEN}",
-        "CB-VERSION": CB_VERSION,
-        "Content-Type": "application/json",
+    host = "api.coinbase.com"
+    path = "/api/v3/brokerage/accounts"
+    method = "GET"
+    url = f"https://{host}{path}"
+
+    try:
+        # Note: Business API Keys are often distinct from CDP keys but use same signing for v2/v3
+        # If this fails, ensure the key type supports this JWT method or use legacy signing.
+        token = generate_jwt(key_id, key_secret, method, host, path)
+    except Exception as e:
+        print(f"Error generating JWT: {e}")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "CB-VERSION": "2023-07-06"
     }
 
-
-def fetch_accounts():
-    resp = requests.get(f"{BASE_URL}/accounts", headers=get_headers(), timeout=15)
+    print(f"Fetching Accounts from {url}...")
+    try:
+        resp = requests.get(url, headers=headers)
     resp.raise_for_status()
-    return resp.json()
-
-
-def main():
-    print("Fetching Coinbase Business accounts...")
-    data = fetch_accounts()
-    for acct in data.get("data", []):
-        print(f"Account: {acct['name']} ({acct['currency']})")
-        balance = acct.get("balance", {})
-        print(f"  Balance: {balance.get('amount')} {balance.get('currency')}")
-        print(f"  ID: {acct['id']}")
-        print("  Status:", acct.get("status"))
-        print("  -----")
-
+        print("Accounts:")
+        print(json.dumps(resp.json(), indent=2))
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        if 'resp' in locals():
+            print(resp.text)
 
 if __name__ == "__main__":
-    main()
+    get_business_accounts()

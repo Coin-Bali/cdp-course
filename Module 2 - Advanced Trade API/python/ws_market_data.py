@@ -1,63 +1,78 @@
+import sys
 import os
 import json
 import time
-import secrets
-import jwt
-from cryptography.hazmat.primitives import serialization
-from websocket import WebSocketApp
+import threading
+import websocket
+from dotenv import load_dotenv, find_dotenv
 
-WS_URL = "wss://advanced-trade-ws.coinbase.com"
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from utils.cdp_auth import generate_jwt
 
+load_dotenv(find_dotenv())
 
-def build_ws_jwt(key_id: str, key_secret_pem: str, expires_in: int = 120) -> str:
-    private_key = serialization.load_pem_private_key(key_secret_pem.encode("utf-8"), password=None)
-    now = int(time.time())
-    payload = {
-        "iss": "cdp",
-        "nbf": now,
-        "exp": now + expires_in,
-        "sub": key_id,
-    }
-    headers = {"kid": key_id, "nonce": secrets.token_hex()}
-    return jwt.encode(payload, private_key, algorithm="ES256", headers=headers)
+# --- WebSocket Client ---
+def on_message(ws, message):
+    print(f"Received: {message}")
 
+def on_error(ws, error):
+    print(f"Error: {error}")
 
-def on_open(ws: WebSocketApp):
-    print("WS open")
-    # Optional JWT for market data (most channels don't require auth)
-    jwt_token = None
-    key_id = os.getenv("ADV_API_KEY_ID") or os.getenv("CDP_API_KEY_ID")
-    key_secret = os.getenv("ADV_API_KEY_SECRET") or os.getenv("CDP_API_KEY_SECRET")
-    if key_id and key_secret:
-        jwt_token = build_ws_jwt(key_id, key_secret)
+def on_close(ws, close_status_code, close_msg):
+    print(f"Closed: {close_status_code} - {close_msg}")
 
-    message = {
-        "type": "subscribe",
-        "channel": "ticker",
-        "product_ids": ["BTC-USD"],
-    }
-    if jwt_token:
-        message["jwt"] = jwt_token
-    ws.send(json.dumps(message))
+def on_open(ws):
+    def run(*args):
+        # Subscribe to a public market data channel (e.g., ticker for BTC-USD)
+        subscribe_message = {
+            "type": "subscribe",
+            "product_ids": ["BTC-USD"],
+            "channel": "ticker"
+        }
+        
+        # Example of Authenticated Subscription (User channel)
+        # To use this, uncomment lines below and ensure CDP keys have permissions.
+        # For Websockets, we pass method=None to generate_jwt to omit the 'uri' claim.
+        
+        # api_key_id = os.getenv("CDP_API_KEY_ID")
+        # api_key_secret = os.getenv("CDP_API_KEY_SECRET")
+        # if api_key_id and api_key_secret:
+        #     try:
+        #         jwt_token = generate_jwt(api_key_id, api_key_secret, request_method=None)
+        #         subscribe_message["jwt"] = jwt_token
+        #         subscribe_message["channel"] = "user" # Change to user channel
+        #         print("Generated JWT for WebSocket auth.")
+        #     except Exception as e:
+        #         print(f"Auth Error: {e}")
 
+        ws.send(json.dumps(subscribe_message))
+        print(f"Sent subscribe message: {subscribe_message}")
 
-def on_message(ws: WebSocketApp, message: str):
-    data = json.loads(message)
-    print(data)
+        # Keep the connection alive for a while
+        time.sleep(10) 
+        
+        # Unsubscribe (optional)
+        unsubscribe_message = {
+            "type": "unsubscribe",
+            "product_ids": ["BTC-USD"],
+            "channel": "ticker"
+        }
+        ws.send(json.dumps(unsubscribe_message))
+        print(f"Sent unsubscribe message: {unsubscribe_message}")
+        time.sleep(1)
+        ws.close()
 
-
-def on_error(ws: WebSocketApp, error: Exception):
-    print("WS error:", error)
-
-
-def on_close(ws: WebSocketApp, code, reason):
-    print("WS closed", code, reason)
-
-
-def main() -> None:
-    ws = WebSocketApp(WS_URL, on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
-    ws.run_forever()
-
+    threading.Thread(target=run).start()
 
 if __name__ == "__main__":
-    main()
+    # WebSocket endpoint for public market data
+    websocket_url = "wss://advanced-trade-ws.coinbase.com"
+    print(f"Connecting to WebSocket: {websocket_url}")
+    ws = websocket.WebSocketApp(
+        websocket_url,
+        on_open=on_open,
+        on_message=on_message,
+        on_error=on_error,
+        on_close=on_close
+    )
+    ws.run_forever()

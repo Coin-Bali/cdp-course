@@ -19,7 +19,7 @@
   - **OAuth2**: Authorization Code + optional PKCE; scopes define resource access; tokens expire in ~1 hour; refresh via `grant_type=refresh_token` when `offline_access` was requested.
   - Always encrypt/store credentials securely; use `state` to mitigate CSRF; **2FA required for sensitive scopes like `wallet:transactions:send`**.
 - **Common HTTP Status Codes and Meanings**
-  - 200/201/204 success; 400 validation; 401 unauthorized/invalid/expired token; **402 2FA needed**; 403 invalid scope; 404 not found; 429 rate limited; 500/503 server/maintenance.
+  - 200/201/204 success; 400 validation; 401 unauthorized/invalid/expired token; **402 2FA needed / Payment Required (x402)**; 403 invalid scope; 404 not found; 429 rate limited; 500/503 server/maintenance.
 - **Reading API Error Messages**
   - Error payloads include machine-readable id/type and human-readable message; use correlation IDs and linked docs when provided; treat 5xx as unknown completion and check operation status.
 - **Understanding API Rate Limits**
@@ -160,7 +160,7 @@
   - Ensure SDK initialized before wallet ops; React hooks and Wagmi connector available.
 
 ### 5.3 Common Support Scenarios & Troubleshooting
-- **"User can't create a wallet on their device."**
+- **"User can't create a wallet for their device."**
   - Check SDK initialization and **allowed domains**; browser/OS compatibility for passkeys; ensure biometrics/security enabled; try another device.
 - **"Transaction failing due to paymaster issues."**
   - Verify paymaster URL, allowlisting, sponsorship limits; inspect **Paymaster error codes (e.g., UNAUTHORIZED, GAS_ESTIMATION_ERROR)**; check sponsored network (Base Sepolia vs Mainnet).
@@ -229,128 +229,209 @@
 
 ---
 
-## Module 8: Coinbase Ecosystem Overview (for Redirection)
+## Module 8: Paymaster & Gas Sponsorship
 
-### 8.1 Module Goal
-- **Purpose**
-  - Recognize questions outside CDP scope and redirect correctly to reduce misrouted tickets.
+### 8.1 Product Overview
+- **Problem Solved**
+  - Removes gas friction for users by sponsoring transactions; enables "gasless" experience for Smart Wallets.
+- **Key Concepts**
+  - **ERC-4337 Bundlers**: Infrastructure to process UserOps.
+  - **Paymaster**: Smart contract/service that pays for gas.
+  - **Policies**: Rules for sponsorship (Global vs Per-User limits, Allowlisting).
 
-### 8.2 Base
-- **What it is**
-  - Ethereum L2 for low-cost dApps.
-- **Key Takeaway**
-  - Queries about Base RPCs, contract deployment, node issues are out-of-scope for CDP T1.
-- **Where to Redirect**
-  - Base documentation, Base Discord/community, Base status pages.
+### 8.2 Technical Flow
+- **Integration**
+  - Configure Paymaster in CDP (Network, Policy); generate `paymasterUrl`; integrate with Smart Wallet SDK or Wagmi (using `paymasterServiceUrl`).
+  - **Base Sepolia**: Automatic sponsorship (often default).
+  - **Base Mainnet**: Requires active Paymaster policy and funding (if not using free tier/credits).
 
-### 8.3 Coinbase Exchange / Pro
-- **What it is**
-  - Professional trading UI distinct from Advanced Trade API.
-- **Key Takeaway**
-  - Clarify UI vs API; asset listing questions are non-CDP.
-- **Where to Redirect**
-  - Standard Coinbase customer support for Exchange/Pro.
+### 8.3 Common Support Scenarios & Troubleshooting
+- **"Gas estimation error / Preverification failed."**
+  - Check if user has sufficient funds if NOT sponsored, or if Paymaster policy is rejecting the op (e.g., over limit).
+- **"Policy Violation / Unauthorized."**
+  - Check Per-User limits (daily/total) and Global limits. Confirm contract method is allowlisted (if allowlist enabled).
+- **"Paymaster URL invalid."**
+  - Ensure URL matches the network (Testnet vs Mainnet).
 
-### 8.4 Coinbase International Exchange
-- **What it is**
-  - Perpetual futures/spot for eligible non-US institutions.
-- **Key Takeaway**
-  - Confirm whether they mean Advanced Trade API vs International Exchange API.
-- **Where to Redirect**
-  - International Exchange support channels.
-
-### 8.5 Coinbase retail
-- **Scope**
-  - Login/account access queries are retail support, not CDP.
-- **Redirect**
-  - Coinbase retail customer support.
-
-### 8.6 Coinbase Prime
-- **What it is**
-  - Institutional custody/trading/financing.
-- **Key Takeaway**
-  - Separate platform and APIs from CDP.
-- **Where to Redirect**
-  - Prime account manager/Prime support.
-
-### 8.7 Coinbase Derivatives
-- **What it is**
-  - CFTC-regulated US futures exchange.
-- **Key Takeaway**
-  - API access for these products is not CDP.
-- **Where to Redirect**
-  - Coinbase Derivatives support channels.
+### 8.4 Escalation Guide
+- **Collect before escalating**
+  - Paymaster ID/Project ID, Bundler URL, UserOp hash (if available), detailed error JSON, Policy configuration screenshot.
 
 ---
 
-## Handy Triage Checklists (Appendix)
+## Module 9: CDP Trade API (Onchain Swaps)
 
-### Authentication
-- API key type, permissions/scopes, IP allowlist; OAuth `state`, PKCE; token expiry and refresh; **2FA for sensitive scopes**; secure storage.
+### 9.1 Product Overview
+- **What it is**
+  - API for executing **Onchain Token Swaps** (DEX Aggregation via 0x) on Base/Ethereum.
+  - **Distinct from Advanced Trade**: Advanced Trade = Order Book (CEX); Trade API = Onchain Swaps (DEX).
 
-### Headers/Versioning
-- Include required headers (`CB-VERSION` where applicable); correct content types; correlation IDs.
+### 9.2 Technical Flow
+- **Swap Lifecycle**
+  - `Get Quote`: Ask for exchange rate (slippage, gas included).
+  - `Execute`: Sign and broadcast transaction (via Server Wallet or external wallet).
+  - **Slippage**: Price difference between quote and execution.
 
-### Rate Limits
-- Identify 429 responses; apply exponential backoff; cache non-volatile data; respect WebSocket limits.
+### 9.3 Common Support Scenarios & Troubleshooting
+- **"Swap failed / Reverted."**
+  - Check slippage settings (too low?), insufficient gas (if not sponsored), or liquidity drying up.
+- **"Rate seems wrong."**
+  - Compare with other aggregators; explain impact of liquidity and price impact for large orders.
+- **"Unsupported token."**
+  - Verify token is tradable on the network and has sufficient liquidity.
 
-### Webhooks
-- HTTPS only; verify signatures; capture delivery logs; allow re-delivery; idempotency at receiver.
+### 9.4 Escalation Guide
+- **Collect before escalating**
+  - Quote ID, Tx Hash (if generated), Token Pair (In/Out), Amounts, Timestamp.
 
-### Environments
-- Confirm network (Base Mainnet vs Base Sepolia) and RPC endpoints; paymaster sponsorship differences.
+---
 
-### On-chain
-- Inspect tx hash/status, nonce, gas; interpret revert data; protocol-specific delays (staking).
+## Module 10: Transfer API (Coinbase App/Business)
 
-### Paymaster Troubleshooting
-- **Policy Limits**: Per-user and global spend limits; gas policy configuration; allowlisting contracts/methods.
-- **Error Codes**: UNAUTHORIZED, GAS_ESTIMATION_ERROR, DENIED_ERROR, UNAVAILABLE_ERROR.
-- **Common Issues**: Insufficient gas, invalid paymaster signature, policy violations.
+### 10.1 Product Overview
+- **What it is**
+  - **Consumer/Business Transfer API**: Sending crypto/fiat from Coinbase Accounts (CEX) to external addresses or other Coinbase accounts.
+  - Distinct from Server Wallet transfers (which are purely onchain from dev-controlled keys).
 
-### Domain Allowlisting (Embedded Wallets)
-- CORS configuration for allowed domains; exact match requirements; HTTPS enforcement.
-- Browser compatibility for passkeys/WebAuthn; device-specific key storage.
+### 10.2 Technical Flow
+- **Send/Withdraw Flow**
+  - `POST /v2/accounts/:id/transactions` (type: `send`).
+  - **2FA**: often required for API sends (bypass via `wallet:transactions:send` scope + 2FA header or specific API Key permissions).
+  - **Idempotency**: Use strict idempotency keys to avoid double sends.
 
-### Staking-Specific
-- **SOL Limitations**: External addresses only (not Coinbase App/Prime addresses); rent reserve considerations for historical rewards.
-- **ETH Staking**: Shared vs. dedicated validators; 32 ETH minimum for dedicated; onchain billing setup.
-- **Rewards**: Protocol-specific schedules; USD conversion rates; historical data limitations.
+### 10.3 Common Support Scenarios & Troubleshooting
+- **"Transfer pending indefinitely."**
+  - Check internal transaction status; pending 2FA? Compliance review? Blockchain congestion?
+- **"2FA Required (402) error."**
+  - Explain 2FA requirement for sensitive scopes; guide to re-authorize or use correct header.
+- **"Travel Rule error."**
+  - For regulated regions; ensure required beneficiary info is included.
 
-### Server Wallet v2 vs v1
-- **v2 Features**: TEE-backed security, multi-network EVM scope, Solana support, integrated swaps.
-- **Migration**: v1 USDC rewards phasing out; encourage v2 adoption.
-- **Pricing**: $0.005 per wallet operation; usage-based billing.
+### 10.4 Escalation Guide
+- **Collect before escalating**
+  - Account ID, Transaction ID (internal), Hash (if broadcast), Error response, Idempotency Key.
 
-### Advanced Trade WebSocket
-- **Rate Limits**: 750 messages/second per IP; 8/second unauthenticated.
-- **Authentication**: JWT tokens for user-specific channels; market data channels public.
-- **Connection Management**: Proper subscription handling; reconnection logic.
+---
 
-### Error Response Patterns
-- **Standard Format**: `{"errors": [{"id": "error_type", "message": "description", "url": "doc_link"}]}`
-- **Common Types**: `rate_limit_exceeded`, `invalid_scope`, `two_factor_required`, `authentication_error`.
-- **Validation Errors**: Multiple errors in array for 400 responses.
+## Module 11: CDP Data & Oracle APIs
 
-### Security Best Practices
-- **API Keys**: ECDSA signature algorithm (not Ed25519 for Coinbase App); IP allowlisting; least privilege permissions.
-- **OAuth2**: State parameter for CSRF; PKCE for additional security; encrypted token storage.
-- **2FA**: Required for `wallet:transactions:send` scope; CB-2FA-TOKEN header for retry requests.
+### 11.1 Product Overview
+- **Scope**
+  - **SQL API**: Query decoded onchain data (Base) via SQL.
+  - **Mesh Data API**: Standardized blockchain data access (Blocks, Tx).
+  - **Spot Prices**: `GET /v2/prices/:pair/spot`.
 
-### Network-Specific Considerations
-- **Base Sepolia**: Default sponsorship for user operations; testnet environment.
-- **Base Mainnet**: Paymaster configuration required; production environment.
-- **Ethereum**: Higher gas costs; different confirmation times.
-- **Solana**: Different transaction model; account-based vs. UTXO.
+### 11.2 Technical Flow
+- **SQL API**
+  - Write SQL -> Execute -> Get JSON results. Free tier limits apply.
+- **Prices**
+  - Public endpoints (no auth needed often); strict rate limits.
 
-### Webhook Security
-- **Commerce**: `X-CC-WEBHOOK-SIGNATURE` HMAC verification; shared secret validation.
-- **General**: HTTPS endpoints only; 2xx response codes; signature verification before processing.
-- **Retry Logic**: Exponential backoff; idempotency handling; delivery confirmation.
+### 11.3 Common Support Scenarios & Troubleshooting
+- **"SQL Query timeout."**
+  - Optimize query; add filters (block range, time); explain complexity limits.
+- **"Price data stale/wrong."**
+  - Verify pair; explain it's "Spot" (average) vs "Buy/Sell" (includes spread).
 
-### Troubleshooting Workflow
-1. **Collect**: Full request/response, headers, timestamps, correlation IDs, user context.
-2. **Reproduce**: Use docs-guided steps; test with minimal configuration.
-3. **Isolate**: Check authentication, permissions, rate limits, network status.
-4. **Escalate**: Include all collected data; specify suspected root cause; reference relevant docs.
+### 11.4 Escalation Guide
+- **Collect before escalating**
+  - SQL Query string, Error ID, Time of request.
 
+---
+
+## Module 12: x402 Payment Protocol
+
+### 12.1 Product Overview
+- **What it is**
+  - Open protocol for **Payment Required (HTTP 402)** flows.
+  - Enables "Pay-for-API" or "Pay-for-Content" using crypto instantly.
+
+### 12.2 Technical Flow
+- **Facilitator & Bazaar**
+  - Client requests resource -> Server returns 402 + Payment Details (Address, Amount).
+  - Client pays -> Server verifies -> Returns resource (200 OK).
+  - **Facilitator API**: Helps verify/settle these payments.
+
+### 12.3 Common Support Scenarios & Troubleshooting
+- **"402 Error when calling API."**
+  - This is expected! Explain the flow: user must pay to proceed.
+- **"Payment sent but resource not unlocked."**
+  - Verify tx confirmation; check `verify` endpoint response; ensure correct amount/asset sent.
+
+---
+
+## Module 13: Faucets & Testnet Tools
+
+### 13.1 Product Overview
+- **Purpose**
+  - Provide free testnet assets (ETH, USDC) for development (Base Sepolia).
+
+### 13.2 Technical Flow
+- **Sources**
+  - **Coinbase Faucet (Portal)**: Authenticated, higher limits.
+  - **Third-party Faucets**: QuickNode, Alchemy, etc.
+  - **Wallet Faucets**: Built-in to Coinbase Wallet for developers.
+
+### 13.3 Common Support Scenarios & Troubleshooting
+- **"Faucet dry / Error."**
+  - Check daily limits; verify wallet address; try alternative faucet or waiting 24h.
+- **"Need more testnet ETH."**
+  - Explain bridging from Sepolia ETH or using PoW faucets if available.
+
+---
+
+## Module 14: Coinbase Ecosystem
+
+### 14.1 Module Goal
+- **Purpose**
+  - Recognize questions outside CDP scope and redirect correctly.
+  - **Updated**: Includes Base Appchains and AgentKit.
+
+### 14.2 Base & Base Appchains
+- **Base**: L2 (General Support -> Base Discord/Docs).
+- **Appchains (L3s)**: Dedicated blockspace for scaling.
+  - **Support**: Enterprise/Business tiers often involved; technical issues go to Base engineering or Appchain-specific support channels.
+  - **Key Concepts**: Dedicated Sequencer, Custom Gas Token.
+
+### 14.3 AgentKit (AI Agents)
+- **What it is**: SDK for AI Agents to perform onchain actions (Trade, Transfer).
+- **Integration**: Works with LangChain, OpenAI, CDP Wallets.
+- **Support**: Check if issue is *AI Logic* (Out of scope) or *CDP Action* (In scope, e.g., wallet failure).
+
+### 14.4 Redirection Guide (Others)
+- **Exchange/Pro**: Help Center.
+- **Prime**: Prime Support.
+- **Retail**: Help Center.
+
+---
+
+## Module 15: Datadog Debugging & Observability
+
+### 15.1 Product Overview
+- **Why Datadog?**
+  - Essential for monitoring production integrations with CDP.
+  - Provides visibility into **API Latency**, **Error Rates**, and **Rate Limits**.
+  - Helps correlate client-side errors with CDP server-side logs using **Correlation IDs**.
+
+### 15.2 Key Concepts
+- **Structured Logging (JSON)**
+  - Datadog parses JSON logs automatically.
+  - **Best Practice**: Always log the `correlation_id` returned in CDP response headers.
+- **APM (Application Performance Monitoring)**
+  - Use `ddtrace` to automatically instrument Python `requests`.
+  - Identify if latency is due to local processing or the external API call.
+
+### 15.3 Common Debugging Scenarios
+- **"My API calls are failing intermittently."**
+  - Check `cdp.status_code` in logs. If `429`, you are hitting rate limits.
+- **"Transactions are slow."**
+  - Check APM Traces. If the span to `api.cdp.coinbase.com` is long (>5s), it's network/upstream latency.
+- **"Webhooks are missing."**
+  - Check if your server is logging any webhook receipt events. If not, check firewall/network.
+
+### 15.4 Setup Guide
+1. Install dependencies: `pip install datadog`
+2. Set environment variables: `DD_API_KEY`, `DD_APP_KEY`
+3. Initialize `datadog.initialize()` in your app.
+
+---

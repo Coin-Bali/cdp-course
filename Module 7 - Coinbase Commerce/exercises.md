@@ -1,16 +1,39 @@
-# Module 7 Exercises: Commerce → Business
+# Module 7: Guided Labs & Exercises
 
-1. **Webhook Veriﬁcation Lab**
-   - Copy `samples/charge_webhook.json` to a temporary file and compute the HMAC SHA256 signature with your `COMMERCE_SHARED_SECRET` (or use the signature from a real webhook). Run `python python/verify_webhook.py --payload samples/charge_webhook.json --signature '<your_signature>'` and note whether it matches.
-   - If the script reports a mismatch, double-check that the payload was not pretty-printed and that you copied the raw bytes Coinbase sent.
+## Lab 1: Verify a Webhook
+**Goal:** Write/Run code to verify a Commerce webhook signature.
 
-2. **Charge Lifecycle Playbook**
-   - Use the Commerce API (script above or CLI) to create a charge. Let it expire (or simulate by editing the charge timeline). Document the sequence of timeline statuses (`NEW`, `PENDING`, `CONFIRMED`, `EXPIRED`) and which webhooks you expect at each stage.
+### Step 1: Setup
+- Ensure `.env` has `COMMERCE_WEBHOOK_SECRET`.
+- If you don't have a real one, generate a random string for testing: `openssl rand -hex 32`.
 
-3. **Business Accounts Check**
-   - Run `python python/business_accounts.py` to confirm your Business access token and `CB-VERSION`. Capture at least one account ID and currency/type pair that you can provide when a ticket mentions “missing settlement”.
-   - Note the CB-VERSION date printed in your environment and what happens if you remove the header from the request (you should see a warning or failure).
+### Step 2: Run the Verifier
+```bash
+python "Module 7 - Coinbase Commerce/python/verify_webhook.py"
+```
 
-4. **Migration Thought Experiment**
-   - Given a Commerce merchant using `charge:confirmed` webhooks to deposit USD funds, map their workflow to Business APIs (accounts/payouts). Document what data (charge code, timeline with `event.data.id`, webhook timestamp) should move into the Business request/response flow.
-   - Keep these notes handy for when T1 needs to escalate a Commerce -> Business migration case.
+### Step 3: Send a Test Payload
+In a separate terminal:
+```bash
+# You need to calculate the signature first for this to pass!
+# Or, simpler: Just run the script and observe that it listens.
+# To truly test "Success", you'd need a script to GENERATE the signature too.
+```
+*Self-Correction:* Since we only provided the *Verification* script, the lab is to run it and understand the code structure. If you want to simulate a *valid* request, you'd need a generator.
+**Challenge:** Write a small python script to generating a signature using your secret and a dummy payload, then send it to localhost:5000.
+
+---
+
+## Lab 2: List Business Accounts
+**Goal:** Fetch balances/accounts using the Business API (formerly Prime/Exchange/Commerce convergence).
+
+### Step 1: Setup
+Ensure `BUSINESS_API_KEY_ID` and `BUSINESS_API_KEY_SECRET` are set in `.env`.
+
+### Step 2: Run
+```bash
+python "Module 7 - Coinbase Commerce/python/business_accounts.py"
+```
+
+### Step 3: Observe
+- View the list of accounts (Wallets) and their balances.

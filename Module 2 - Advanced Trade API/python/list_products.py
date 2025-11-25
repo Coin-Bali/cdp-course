@@ -1,24 +1,50 @@
+import sys
 import os
 import requests
+import json
+from dotenv import load_dotenv, find_dotenv
 
-API_HOST = "api.coinbase.com"
-API_PATH = "/api/v3/brokerage/products"
-API_URL = f"https://{API_HOST}{API_PATH}"
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from utils.cdp_auth import generate_jwt
 
+load_dotenv(find_dotenv())
 
-def main() -> None:
-    bearer = os.getenv("JWT")
-    if not bearer:
-        raise SystemExit("Set JWT env var (export JWT=$(python advanced_trade_jwt.py)) before running")
+def list_products():
+    key_id = os.getenv("CDP_API_KEY_ID")
+    key_secret = os.getenv("CDP_API_KEY_SECRET")
+    
+    if not key_id or not key_secret:
+        print("Error: CDP_API_KEY_ID and CDP_API_KEY_SECRET must be set in .env")
+        return
+
+    host = "api.coinbase.com"
+    path = "/api/v3/brokerage/products"
+    method = "GET"
+    url = f"https://{host}{path}"
+
+    try:
+        token = generate_jwt(key_id, key_secret, method, host, path)
+    except Exception as e:
+        print(f"Error generating JWT: {e}")
+        return
 
     headers = {
-        "Authorization": f"Bearer {bearer}",
+        "Authorization": f"Bearer {token}",
         "Accept": "application/json",
     }
-    resp = requests.get(API_URL, headers=headers, timeout=30)
-    print(resp.status_code)
-    print(resp.text)
 
+    print("Listing Advanced Trade Products...")
+    try:
+        resp = requests.get(url, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
+        print(f"Found {len(data.get('products', []))} products.")
+        # Print first 2 for brevity
+        print(json.dumps(data.get('products', [])[:2], indent=2))
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        if 'resp' in locals():
+            print(resp.text)
 
 if __name__ == "__main__":
-    main()
+    list_products()

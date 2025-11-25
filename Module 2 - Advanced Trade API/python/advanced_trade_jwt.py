@@ -1,46 +1,31 @@
+import sys
 import os
-import time
-import secrets
-import jwt
-from cryptography.hazmat.primitives import serialization
+from dotenv import load_dotenv, find_dotenv
 
-# Generates a Bearer JWT for Advanced Trade REST requests
-# Env vars required:
-#   ADV_API_KEY_ID: organizations/{org_id}/apiKeys/{key_id}
-#   ADV_API_KEY_SECRET: PEM EC private key (ES256)
-#   REQUEST_METHOD: e.g., GET or POST
-#   REQUEST_HOST: default api.coinbase.com
-#   REQUEST_PATH: e.g., /api/v3/brokerage/products
-# Optional:
-#   EXPIRES_IN seconds (default 120)
+# Add root directory to sys.path to allow importing utils
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from utils.cdp_auth import generate_jwt
 
+load_dotenv(find_dotenv())
 
-def main() -> None:
-    key_id = os.getenv("ADV_API_KEY_ID") or os.getenv("CDP_API_KEY_ID")
-    key_secret = os.getenv("ADV_API_KEY_SECRET") or os.getenv("CDP_API_KEY_SECRET")
-    method = os.getenv("REQUEST_METHOD", "GET")
-    host = os.getenv("REQUEST_HOST", "api.coinbase.com")
-    path = os.getenv("REQUEST_PATH", "/api/v3/brokerage/products")
-    expires_in = int(os.getenv("EXPIRES_IN", "120"))
+def main():
+    key_id = os.getenv("CDP_API_KEY_ID")
+    key_secret = os.getenv("CDP_API_KEY_SECRET")
+    
+    # Advanced Trade API host (Brokerage)
+    host = "api.coinbase.com"
+    path = "/api/v3/brokerage/products"
+    method = "GET"
 
     if not key_id or not key_secret:
-        raise SystemExit("ADV_API_KEY_ID/CDP_API_KEY_ID and ADV_API_KEY_SECRET/CDP_API_KEY_SECRET are required")
+        print("Error: CDP_API_KEY_ID and CDP_API_KEY_SECRET must be set in .env")
+        return
 
-    private_key = serialization.load_pem_private_key(key_secret.encode("utf-8"), password=None)
-
-    now = int(time.time())
-    payload = {
-        "sub": key_id,
-        "iss": "cdp",
-        "nbf": now,
-        "exp": now + expires_in,
-        "uri": f"{method} {host}{path}",
-    }
-    headers = {"kid": key_id, "nonce": secrets.token_hex()}
-
-    token = jwt.encode(payload, private_key, algorithm="ES256", headers=headers)
-    print(token)
-
+    try:
+        token = generate_jwt(key_id, key_secret, method, host, path)
+        print(f"Generated Advanced Trade JWT:\n{token}")
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()

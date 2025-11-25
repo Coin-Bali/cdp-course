@@ -7,6 +7,7 @@ By the end of this module, you will be able to:
 - Apply rate limiting best practices and troubleshooting techniques
 - Distinguish between on-chain and off-chain operations
 - Identify the correct network environment for different CDP products
+- **Use the provided Python utilities** for consistent authentication across all course modules.
 
 ---
 
@@ -25,6 +26,7 @@ This course is designed to empower T1 support agents with deeper technical knowl
 - **Structured Playbooks**: Step-by-step troubleshooting guides for common scenarios
 - **Quick Reference Materials**: Essential information for rapid ticket resolution
 - **Escalation Checklists**: Clear criteria for when and how to escalate to T2
+- **Shared Auth Utilities**: A `utils/cdp_auth.py` helper is provided in the repo root to standardize JWT generation (handling both ECDSA and Ed25519 keys) for all Python exercises.
 
 ---
 
@@ -52,12 +54,12 @@ An API (Application Programming Interface) is a set of protocols and tools that 
 
 **Key Characteristics:**
 - Created through the CDP portal
-- **Critical**: Must use ECDSA signature algorithm (Ed25519 NOT supported for Coinbase App SDKs)
+- **Signature Algorithms**: CDP v2 keys support **Ed25519** (recommended) and **ECDSA** (legacy/specific SDKs). The course utilities handle both automatically.
 - IP allowlisting recommended for security
 - Simple permission model: View, Trade, Transfer
 
 **Security Best Practices:**
-- Store in environment variables, never in code
+- Store in environment variables (use the provided `env.example`), never in code
 - Use least privilege principle
 - Enable IP allowlisting when possible
 - Rotate keys regularly
@@ -224,7 +226,7 @@ CDP APIs return structured error responses with:
 - Check API key type and permissions
 - Validate OAuth scopes and token expiry
 - Confirm IP allowlisting settings
-- Verify signature algorithms
+- Verify signature algorithms (The shared `utils/cdp_auth.py` handles this for you)
 
 ### Step 3: Check Rate Limits
 - Identify 429 responses
@@ -249,11 +251,10 @@ CDP APIs return structured error responses with:
 ## 5. Quick Reference Checklists
 
 ### Authentication Checklist
-- [ ] API key type matches use case
+- [ ] API key type matches use case (Ed25519 vs ECDSA)
 - [ ] Permissions/scopes are sufficient
 - [ ] IP allowlisting configured (if applicable)
-- [ ] Signature algorithm is ECDSA (not Ed25519)
-- [ ] Credentials stored securely
+- [ ] Credentials stored securely in `.env`
 
 ### OAuth2 Checklist
 - [ ] State parameter included (8+ characters)
@@ -311,5 +312,6 @@ After completing this module, you should be able to:
 3. Apply rate limiting best practices
 4. Distinguish between on-chain and off-chain operations
 5. Select the correct network environment for testing and production
+6. **Set up your Python environment** using `env.example` and `utils/` for the upcoming exercises.
 
 **Ready for Module 1**: Coinbase Pay (Onramp/Offramp) troubleshooting and support scenarios.

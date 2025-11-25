@@ -1,44 +1,67 @@
+import sys
 import os
-import json
 import requests
+import json
+from dotenv import load_dotenv, find_dotenv
 
-API_HOST = os.getenv("REQUEST_HOST", "api.cdp.coinbase.com")
-EVM_SEND_PATH = os.getenv("EVM_SEND_PATH", "/platform/v2/evm/send")
-API_URL = f"https://{API_HOST}{EVM_SEND_PATH}"
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from utils.cdp_auth import generate_jwt
 
+load_dotenv(find_dotenv())
 
-def main() -> None:
-    bearer = os.getenv("JWT")
-    if not bearer:
-        raise SystemExit("Set JWT env var (export JWT=$(python server_wallet_jwt.py)) before running")
+def send_evm_transaction():
+    key_id = os.getenv("CDP_API_KEY_ID")
+    key_secret = os.getenv("CDP_API_KEY_SECRET")
+    wallet_secret = os.getenv("CDP_WALLET_SECRET")
 
-    address = os.getenv("EVM_ADDRESS")
-    network = os.getenv("EVM_NETWORK", "base-sepolia")
-    to_addr = os.getenv("EVM_TO_ADDRESS", "0x0000000000000000000000000000000000000000")
-    value_wei = os.getenv("EVM_VALUE_WEI", "1000")
+    source_addr = os.getenv("EVM_SOURCE_ADDRESS")
+    dest_addr = os.getenv("EVM_DESTINATION_ADDRESS")
+    
+    if not all([key_id, key_secret, wallet_secret, source_addr, dest_addr]):
+        print("Error: Missing required env vars (CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET, EVM_SOURCE_ADDRESS, EVM_DESTINATION_ADDRESS)")
+        return
 
-    if not address:
-        raise SystemExit("Set EVM_ADDRESS to the server wallet EVM address")
+    host = "api.cdp.coinbase.com"
+    path = f"/platform/v2/evm/accounts/{source_addr}/transactions"
+    method = "POST"
+    url = f"https://{host}{path}"
 
-    body = {
-        "address": address,
-        "network": network,
+    payload = {
         "transaction": {
-            "to": to_addr,
-            "value": value_wei,
+            "to": dest_addr,
+            "value": os.getenv("EVM_TRANSACTION_AMOUNT", "0x1"), # 1 wei
         },
+        "network": os.getenv("EVM_NETWORK", "base-sepolia")
     }
+
+    try:
+        # 1. Generate Standard Auth Token
+        auth_token = generate_jwt(key_id, key_secret, method, host, path)
+        
+        # 2. Generate Wallet Auth Token (Signed with Wallet Secret)
+        # We reuse the same function but pass wallet_secret
+        wallet_auth_token = generate_jwt(key_id, wallet_secret, method, host, path)
+    except Exception as e:
+        print(f"Error generating JWTs: {e}")
+        return
 
     headers = {
-        "Authorization": f"Bearer {bearer}",
-        "Accept": "application/json",
+        "Authorization": f"Bearer {auth_token}",
+        "X-Wallet-Auth": f"Bearer {wallet_auth_token}",
         "Content-Type": "application/json",
+        "Accept": "application/json",
     }
 
-    resp = requests.post(API_URL, headers=headers, data=json.dumps(body), timeout=30)
-    print(resp.status_code)
-    print(resp.text)
-
+    print(f"Sending Transaction from {source_addr}...")
+    try:
+        resp = requests.post(url, headers=headers, json=payload)
+        resp.raise_for_status()
+        print("Transaction Sent:")
+        print(json.dumps(resp.json(), indent=2))
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        if 'resp' in locals():
+            print(resp.text)
 
 if __name__ == "__main__":
-    main()
+    send_evm_transaction()

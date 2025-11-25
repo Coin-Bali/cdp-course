@@ -1,7 +1,36 @@
-# Module 6 Exercises: SIWC OAuth
+# Module 6: Guided Labs & Exercises
 
-1. **Drop-in Lab**: Run `python python/siwc_oauth_flow.py` and complete the authorization flow with scopes `wallet:user:read`, `wallet:accounts:read`, and `offline_access`. Capture the printed access & refresh tokens and confirm the `scope` string matches what you requested.
-2. **Redirect URI Mismatch**: Temporarily change `COINBASE_REDIRECT_URI` in your `.env` to a URL not registered in the portal. Re-run the script and inspect the Coinbase error message. Add a note to your lab notes that explains why the redirect URIs must match exactly.
-3. **Refresh Token Notes**: After refreshing once, re-run the helper and try to reuse the old refresh token (copy it somewhere before refreshing). Document what error Coinbase returns when a refresh token is used twice.
-4. **2FA Simulation**: If your sandbox user requires 2FA, trigger a 402 response (`two_factor_required`). Use the `CB-2FA-TOKEN` header value that appears in the response to replay the request (you can edit the script or use curl). Note how quickly the token expires and what headers are required.
-5. **Escalation Checklist**: For each run, log the `state`, `code_verifier`, and the `code` you received. When a `state` mismatch or invalid code occurs, reference these logs when filling out the SIWC escalation checklist in the README.
+## Lab 1: Run the OAuth2 Flow
+**Goal:** Successfully authenticate a user and get an Access Token.
+
+### Step 1: Setup
+- Ensure `.env` has `SIWC_CLIENT_ID`, `SIWC_CLIENT_SECRET`, and `SIWC_REDIRECT_URI`.
+- Ensure `SIWC_REDIRECT_URI` matches `http://localhost:5000/callback` (or your port).
+
+### Step 2: Start the Server
+```bash
+python "Module 6 - Sign in with Coinbase/python/siwc_oauth_flow.py"
+```
+
+### Step 3: Execute Flow
+1. Open `http://localhost:5000` in your browser.
+2. Click **Start OAuth2 Flow**.
+3. Log in to Coinbase (if asked).
+4. **Consent:** Click "Allow" on the permission screen.
+5. **Success:** You should be redirected back and see your `Access Token` and `Refresh Token`.
+
+---
+
+## Lab 2: Refresh a Token
+**Goal:** Use the Refresh Token to get a new Access Token.
+
+### Step 1: Get Refresh Token
+- Copy the `refresh_token` from the output of Lab 1 (or check your terminal logs).
+- Add it to `.env` as `SIWC_REFRESH_TOKEN` (optional, or just use the UI link if the script supports session).
+
+### Step 2: Trigger Refresh
+- Click the **"Refresh Token"** link on the demo page (or navigate to `/refresh_token`).
+- **Observe:** The Access Token string changes. The expiration timer resets.
+
+### Step 3: Verify
+- If successful, the OAuth lifecycle is working correctly!

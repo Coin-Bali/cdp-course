@@ -7,12 +7,53 @@ This repository contains the training materials for the course "CDP Technical Fo
 
 ## Repository Map
 
-- Course Outline
+- **Course Outline**
   - `course outline.md`
-- Module 0: Core Concepts for Developer Support
+
+- **Module 0: Core Concepts for Developer Support**
   - `Module 0 - Core Concepts for Developer Support/`
-- Module 1: Onramp & Offramp
+
+- **Module 1: Coinbase Pay (Onramp/Offramp)**
   - `Module 1 - Onramp & Offramp/`
+
+- **Module 2: Advanced Trade API**
+  - `Module 2 - Advanced Trade API/`
+
+- **Module 3: Staking API**
+  - `Module 3 - Staking API/`
+
+- **Module 4: Wallet as a Service (Server Wallet)**
+  - `Module 4 - Server Wallet/`
+
+- **Module 5: Embedded Wallets (Smart Wallets)**
+  - `Module 5 - Embedded Wallets/`
+
+- **Module 6: Sign in with Coinbase (SIWC)**
+  - `Module 6 - Sign in with Coinbase/`
+
+- **Module 7: Coinbase Commerce / Business**
+  - `Module 7 - Coinbase Commerce/`
+
+- **Module 8: Paymaster & Gas Sponsorship**
+  - `Module 8 - Paymaster & Gas Sponsorship/`
+
+- **Module 9: CDP Trade API**
+  - `Module 9 - CDP Trade API/`
+
+- **Module 10: Transfer API**
+  - `Module 10 - Transfer API/`
+
+- **Module 11: CDP Data & Oracle APIs**
+  - `Module 11 - CDP Data APIs/`
+
+- **Module 12: x402 Payment Protocol**
+  - `Module 12 - x402 Payment Protocol/`
+
+- **Module 13: Faucets & Testnet Tools**
+  - `Module 13 - Faucets & Testnet Tools/`
+
+- **Module 14: Coinbase Ecosystem (Redirection)**
+  - `Module 14 - Coinbase Ecosystem/`
 
 Each module directory includes its own README with detailed instructions, troubleshooting guides, and any example code or exercises.
 

@@ -1,26 +1,54 @@
+import sys
 import os
 import requests
+import json
+import time
+from dotenv import load_dotenv, find_dotenv
 
-API_HOST = os.getenv("REQUEST_HOST", "api.cdp.coinbase.com")
-SOL_ACCOUNTS_PATH = os.getenv("SOL_ACCOUNTS_PATH", "/platform/v2/solana/accounts")
-API_URL = f"https://{API_HOST}{SOL_ACCOUNTS_PATH}"
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from utils.cdp_auth import generate_jwt
 
+load_dotenv(find_dotenv())
 
-def main() -> None:
-    bearer = os.getenv("JWT")
-    if not bearer:
-        raise SystemExit("Set JWT env var (export JWT=$(python server_wallet_jwt.py)) before running")
+def create_solana_account():
+    key_id = os.getenv("CDP_API_KEY_ID")
+    key_secret = os.getenv("CDP_API_KEY_SECRET")
 
-    headers = {
-        "Authorization": f"Bearer {bearer}",
-        "Accept": "application/json",
-        "Content-Type": "application/json",
+    if not key_id or not key_secret:
+        print("Error: CDP_API_KEY_ID and CDP_API_KEY_SECRET must be set in .env")
+        return
+
+    host = "api.cdp.coinbase.com"
+    path = "/platform/v2/solana/accounts"
+    method = "POST"
+    url = f"https://{host}{path}"
+
+    payload = {
+        "name": os.getenv("SOLANA_ACCOUNT_NAME", f"sol-acct-{int(time.time())}")
     }
 
-    resp = requests.post(API_URL, headers=headers, timeout=30)
-    print(resp.status_code)
-    print(resp.text)
+    try:
+        token = generate_jwt(key_id, key_secret, method, host, path)
+    except Exception as e:
+        print(f"Error generating JWT: {e}")
+        return
 
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    print(f"Creating Solana Account: {json.dumps(payload)}")
+    try:
+        resp = requests.post(url, headers=headers, json=payload)
+        resp.raise_for_status()
+        print("Account Created:")
+        print(json.dumps(resp.json(), indent=2))
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        if 'resp' in locals():
+            print(resp.text)
 
 if __name__ == "__main__":
-    main()
+    create_solana_account()

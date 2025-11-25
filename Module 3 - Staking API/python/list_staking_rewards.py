@@ -1,37 +1,50 @@
+import sys
 import os
 import requests
+import json
+from dotenv import load_dotenv, find_dotenv
 
-API_HOST = os.getenv("REQUEST_HOST", "api.cdp.coinbase.com")
-REWARDS_PATH = os.getenv("STAKE_REWARDS_PATH", "/platform/v1/stake/rewards")
-API_URL = f"https://{API_HOST}{REWARDS_PATH}"
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from utils.cdp_auth import generate_jwt
 
+load_dotenv(find_dotenv())
 
-def main() -> None:
-    bearer = os.getenv("JWT")
-    if not bearer:
-        raise SystemExit("Set JWT env var (export JWT=$(python staking_jwt.py)) before running")
+def list_staking_rewards():
+    key_id = os.getenv("CDP_API_KEY_ID")
+    key_secret = os.getenv("CDP_API_KEY_SECRET")
+    
+    # e.g., /platform/v1/stake/rewards/ethereum/<address>
+    path = os.getenv("STAKING_REWARDS_PATH")
+    
+    if not key_id or not key_secret or not path:
+        print("Error: CDP_API_KEY_ID, CDP_API_KEY_SECRET, and STAKING_REWARDS_PATH must be set in .env")
+        return
 
-    address = os.getenv("STAKE_ADDRESS_ID")
-    if not address:
-        raise SystemExit("Set STAKE_ADDRESS_ID to the wallet address to query rewards for")
+    host = "api.cdp.coinbase.com"
+    method = "GET"
+    url = f"https://{host}{path}"
 
-    params = {
-        "address_id": address,
-        # Optional time window filters; add via env if needed
-        "start_time": os.getenv("REWARDS_START_TIME"),
-        "end_time": os.getenv("REWARDS_END_TIME"),
-    }
-    # Remove None values
-    params = {k: v for k, v in params.items() if v}
+    try:
+        token = generate_jwt(key_id, key_secret, method, host, path)
+    except Exception as e:
+        print(f"Error generating JWT: {e}")
+        return
 
     headers = {
-        "Authorization": f"Bearer {bearer}",
+        "Authorization": f"Bearer {token}",
         "Accept": "application/json",
     }
-    resp = requests.get(API_URL, headers=headers, params=params, timeout=30)
-    print(resp.status_code)
-    print(resp.text)
 
+    print(f"Fetching rewards from {url}...")
+    try:
+        resp = requests.get(url, headers=headers)
+        resp.raise_for_status()
+        print("Rewards Data:")
+        print(json.dumps(resp.json(), indent=2))
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        if 'resp' in locals():
+            print(resp.text)
 
 if __name__ == "__main__":
-    main()
+    list_staking_rewards()
